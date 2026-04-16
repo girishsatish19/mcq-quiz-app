@@ -4,21 +4,21 @@ from docx import Document
 st.set_page_config(page_title="Mock Test", layout="centered")
 
 def extract_mcqs(file):
+    import re
     from docx import Document
-    doc = Document(file)
 
+    doc = Document(file)
     questions = []
     current_q = None
 
     for para in doc.paragraphs:
         text = para.text.strip()
 
-        # Skip empty lines
         if not text:
             continue
 
-        # Detect question
-        if text.startswith("Q"):
+        # Detect question (more flexible)
+        if re.match(r"^(Q\d+|Question\s*\d+|\d+\.)", text, re.IGNORECASE):
             if current_q:
                 questions.append(current_q)
 
@@ -28,10 +28,10 @@ def extract_mcqs(file):
                 "correct": None
             }
 
-        # Detect options safely
+        # Detect options
         elif text.startswith(("A.", "B.", "C.", "D.")):
             if current_q is None:
-                continue  # VERY IMPORTANT FIX
+                continue
 
             is_correct = any(run.font.highlight_color for run in para.runs)
 
@@ -40,7 +40,6 @@ def extract_mcqs(file):
             if is_correct:
                 current_q["correct"] = text
 
-    # Add last question
     if current_q:
         questions.append(current_q)
 
@@ -69,3 +68,4 @@ if uploaded_file:
                 st.error(f"❌ Incorrect! Correct: {q['correct']}")
 
     st.write("### 🎯 Your Score will be calculated manually for now")
+st.write("Total Questions Detected:", len(questions))
