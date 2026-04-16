@@ -4,25 +4,43 @@ from docx import Document
 st.set_page_config(page_title="Mock Test", layout="centered")
 
 def extract_mcqs(file):
+    from docx import Document
     doc = Document(file)
+
     questions = []
     current_q = None
 
     for para in doc.paragraphs:
         text = para.text.strip()
 
+        # Skip empty lines
+        if not text:
+            continue
+
+        # Detect question
         if text.startswith("Q"):
             if current_q:
                 questions.append(current_q)
-            current_q = {"question": text, "options": [], "correct": None}
 
+            current_q = {
+                "question": text,
+                "options": [],
+                "correct": None
+            }
+
+        # Detect options safely
         elif text.startswith(("A.", "B.", "C.", "D.")):
+            if current_q is None:
+                continue  # VERY IMPORTANT FIX
+
             is_correct = any(run.font.highlight_color for run in para.runs)
+
             current_q["options"].append(text)
 
             if is_correct:
                 current_q["correct"] = text
 
+    # Add last question
     if current_q:
         questions.append(current_q)
 
