@@ -68,4 +68,5 @@ if uploaded_file:
                 st.error(f"❌ Incorrect! Correct: {q['correct']}")
 
     st.write("### 🎯 Your Score will be calculated manually for now")
-st.write("Total Questions Detected:", len(questions))
+    st.write("Total Questions Detected:", len(questions))
+
