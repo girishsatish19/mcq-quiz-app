@@ -1,12 +1,11 @@
 import streamlit as st
 from docx import Document
+import re
 
 st.set_page_config(page_title="Mock Test", layout="centered")
 
+# ----------- PARSE WORD FILE -----------
 def extract_mcqs(file):
-    import re
-    from docx import Document
-
     doc = Document(file)
     questions = []
     current_q = None
@@ -17,7 +16,6 @@ def extract_mcqs(file):
         if not text:
             continue
 
-        # Detect question (more flexible)
         if re.match(r"^(Q\d+|Question\s*\d+|\d+\.)", text, re.IGNORECASE):
             if current_q:
                 questions.append(current_q)
@@ -28,7 +26,6 @@ def extract_mcqs(file):
                 "correct": None
             }
 
-        # Detect options
         elif text.startswith(("A.", "B.", "C.", "D.")):
             if current_q is None:
                 continue
@@ -46,27 +43,79 @@ def extract_mcqs(file):
     return questions
 
 
-st.title("📘 MCQ Mock Test")
+# ----------- EXPLANATION FUNCTION (SIMPLE VERSION) -----------
+def generate_explanation(question, correct_answer):
+    return f"This is correct because the answer is: {correct_answer}"
+
+
+# ----------- UI -----------
+st.title("📘 MCQ Practice")
 
 uploaded_file = st.file_uploader("Upload your MCQ Word file", type=["docx"])
 
 if uploaded_file:
     questions = extract_mcqs(uploaded_file)
 
-    score = 0
+    if len(questions) == 0:
+        st.error("❌ No questions detected. Check format.")
+        st.stop()
 
-    for i, q in enumerate(questions):
-        st.subheader(q["question"])
+    # Session state
+    if "q_index" not in st.session_state:
+        st.session_state.q_index = 0
+        st.session_state.answers = [None] * len(questions)
+        st.session_state.submitted = False
 
-        choice = st.radio("Choose answer:", q["options"], key=i)
+    q_index = st.session_state.q_index
+    q = questions[q_index]
 
-        if st.button(f"Submit Q{i+1}", key=f"btn{i}"):
-            if choice == q["correct"]:
-                st.success("✅ Correct!")
+    # ----------- QUESTION DISPLAY -----------
+    st.markdown(f"### Question {q_index + 1} / {len(questions)}")
+    st.write(q["question"])
+
+    selected = st.radio(
+        "Select your answer:",
+        q["options"],
+        index=q["options"].index(st.session_state.answers[q_index])
+        if st.session_state.answers[q_index] else 0
+    )
+
+    st.session_state.answers[q_index] = selected
+
+    # ----------- NAVIGATION -----------
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("⬅️ Prev") and q_index > 0:
+            st.session_state.q_index -= 1
+
+    with col2:
+        if st.button("Next ➡️") and q_index < len(questions) - 1:
+            st.session_state.q_index += 1
+
+    with col3:
+        if st.button("Submit ✅"):
+            st.session_state.submitted = True
+
+    # ----------- RESULTS -----------
+    if st.session_state.submitted:
+        st.write("## 📊 Results")
+
+        score = 0
+
+        for i, q in enumerate(questions):
+            user_ans = st.session_state.answers[i]
+            correct = q["correct"]
+
+            if user_ans == correct:
+                st.success(f"Q{i+1}: ✅ Correct")
                 score += 1
             else:
-                st.error(f"❌ Incorrect! Correct: {q['correct']}")
+                st.error(f"Q{i+1}: ❌ Incorrect")
+                st.write(f"**Correct Answer:** {correct}")
 
-    st.write("### 🎯 Your Score will be calculated manually for now")
-    st.write("Total Questions Detected:", len(questions))
+            # Explanation
+            explanation = generate_explanation(q["question"], correct)
+            st.info(f"📘 Explanation: {explanation}")
 
+        st.write(f"### 🎯 Score: {score} / {len(questions)}")
