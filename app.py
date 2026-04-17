@@ -2,7 +2,7 @@ import streamlit as st
 from docx import Document
 import re
 
-st.set_page_config(page_title="Mock Test", layout="centered")
+st.set_page_config(page_title="MCQ Practice", layout="centered")
 
 # ----------- PARSE WORD FILE -----------
 def extract_mcqs(file):
@@ -43,13 +43,13 @@ def extract_mcqs(file):
     return questions
 
 
-# ----------- EXPLANATION FUNCTION (SIMPLE VERSION) -----------
+# ----------- SIMPLE FREE EXPLANATION (NO API KEY) -----------
 def generate_explanation(question, correct_answer):
-    return f"This is correct because the answer is: {correct_answer}"
+    return f"The correct answer is {correct_answer}. This best matches the question requirements compared to other options."
 
 
 # ----------- UI -----------
-st.title("📘 MCQ Practice")
+st.title("📘 MCQ Practice Mode")
 
 uploaded_file = st.file_uploader("Upload your MCQ Word file", type=["docx"])
 
@@ -63,59 +63,43 @@ if uploaded_file:
     # Session state
     if "q_index" not in st.session_state:
         st.session_state.q_index = 0
-        st.session_state.answers = [None] * len(questions)
         st.session_state.submitted = False
 
     q_index = st.session_state.q_index
     q = questions[q_index]
 
-    # ----------- QUESTION DISPLAY -----------
     st.markdown(f"### Question {q_index + 1} / {len(questions)}")
     st.write(q["question"])
 
     selected = st.radio(
         "Select your answer:",
         q["options"],
-        index=q["options"].index(st.session_state.answers[q_index])
-        if st.session_state.answers[q_index] else 0
+        key=f"q_{q_index}"
     )
 
-    st.session_state.answers[q_index] = selected
+    # ----------- SUBMIT PER QUESTION -----------
+    if st.button("Submit Answer ✅"):
+        st.session_state.submitted = True
+
+    # ----------- SHOW RESULT -----------
+    if st.session_state.submitted:
+        if selected == q["correct"]:
+            st.success("✅ Correct!")
+        else:
+            st.error(f"❌ Incorrect! Correct: {q['correct']}")
+
+        explanation = generate_explanation(q["question"], q["correct"])
+        st.info(f"📘 Explanation: {explanation}")
 
     # ----------- NAVIGATION -----------
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("⬅️ Prev") and q_index > 0:
+        if st.button("⬅️ Previous") and q_index > 0:
             st.session_state.q_index -= 1
+            st.session_state.submitted = False
 
     with col2:
         if st.button("Next ➡️") and q_index < len(questions) - 1:
             st.session_state.q_index += 1
-
-    with col3:
-        if st.button("Submit ✅"):
-            st.session_state.submitted = True
-
-    # ----------- RESULTS -----------
-    if st.session_state.submitted:
-        st.write("## 📊 Results")
-
-        score = 0
-
-        for i, q in enumerate(questions):
-            user_ans = st.session_state.answers[i]
-            correct = q["correct"]
-
-            if user_ans == correct:
-                st.success(f"Q{i+1}: ✅ Correct")
-                score += 1
-            else:
-                st.error(f"Q{i+1}: ❌ Incorrect")
-                st.write(f"**Correct Answer:** {correct}")
-
-            # Explanation
-            explanation = generate_explanation(q["question"], correct)
-            st.info(f"📘 Explanation: {explanation}")
-
-        st.write(f"### 🎯 Score: {score} / {len(questions)}")
+            st.session_state.submitted = False
